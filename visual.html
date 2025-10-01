@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipe Object Visualization Tool</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            min-height: 100vh; 
+        }
+        
+        .container { 
+            background: rgba(255, 255, 255, 0.95); 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
+            width: 100%;
+        }
+
+        .header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; padding: 20px 30px; text-align: center; }
+        .header h1 { font-size: 2em; margin-bottom: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .header p { font-size: 0.9em; opacity: 0.9; }
+        
+        /* --- Layout chính --- */
+        .content-wrapper { display: flex; flex: 1; overflow: hidden; }
+
+        /* --- Vùng hiển thị chính --- */
+        .image-container { flex: 3; position: relative; background: #2c3e50; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center;}
+        .image-container.dragging { cursor: grabbing; }
+        .image-canvas { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 20px; }
+        .canvas-container { position: relative; border-radius: 10px; overflow: hidden; background: white; box-shadow: 0 10px 20px rgba(0,0,0,0.3); transform-origin: 0 0; transition: transform 0.1s ease; }
+        .no-data { text-align: center; padding: 50px; color: #7f8c8d; font-size: 1.5em; background: rgba(255,255,255,0.9); border-radius: 15px; max-width: 80%; }
+        .no-data span { font-size: 3em; display: block; margin-bottom: 10px;}
+
+        /* --- Thanh bên --- */
+        .info-panel { flex: 1; background: #f8f9fa; overflow-y: auto; min-width: 380px; max-width: 400px; display: flex; flex-direction: column; }
+        .sidebar-content { padding: 25px; display: flex; flex-direction: column; gap: 25px; }
+
+        .upload-section h3, .controls-section h3, .legend-section h3 { color: #2c3e50; margin-bottom: 15px; font-size: 1.3em; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; }
+        .upload-item { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.05); }
+        .file-input { width: 100%; padding: 15px; border: 2px dashed #3498db; border-radius: 10px; background: #ecf0f1; cursor: pointer; transition: all 0.3s ease; }
+        .file-input:hover { border-color: #2980b9; background: #e0e5e5; }
+        .upload-item p { margin-top: 10px; font-size: 0.9em; color: #7f8c8d; }
+
+        .controls { display: flex; flex-direction: column; gap: 15px; }
+        .control-group { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #fff; padding: 12px 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .control-group label { color: #34495e; font-weight: 500; }
+        .control-group input[type="checkbox"] { transform: scale(1.2); }
+        .control-group input, .control-group select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; background: #fdfdfd; flex: 1; }
+        
+        .zoom-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .zoom-btn { background: #3498db; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.3s ease; }
+        .zoom-btn:hover { background: #2980b9; transform: translateY(-1px); }
+
+        .legend-items { display: flex; flex-wrap: wrap; gap: 10px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; background: #e9ecef; padding: 8px 12px; border-radius: 15px; font-size: 0.9em; }
+        .legend-color { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,0.2); }
+        
+        /* --- Lớp phủ & Thông tin --- */
+        .bbox, .color-overlay { transition: opacity 0.3s ease, stroke-width 0.3s ease; }
+        .color-overlay { cursor: pointer; }
+        .bbox.highlighted, .color-overlay.highlighted { z-index: 100; }
+        .loading, .viewport-info, .zoom-info { position: absolute; background: rgba(0,0,0,0.7); color: white; padding: 8px 12px; border-radius: 5px; z-index: 1000; }
+        .loading { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 30px; display: none; }
+        .viewport-info { bottom: 10px; right: 10px; }
+        .zoom-info { bottom: 10px; left: 10px; }
+
+        @media (max-width: 1024px) {
+            .content-wrapper { flex-direction: column; }
+            .info-panel { min-width: auto; max-width: 100%; max-height: 50vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content-wrapper">
+            <!-- VÙNG HIỂN THỊ CHÍNH -->
+            <div class="image-container" id="imageContainer">
+                <div class="viewport-info" id="viewportInfo">Ready</div>
+                <div class="zoom-info" id="zoomInfo">Zoom: 100%</div>
+                <div id="imageCanvas" class="image-canvas">
+                    <div class="no-data">
+                        <span>📤</span>
+                        Please upload a JSON data file to start
+                    </div>
+                </div>
+            </div>
+
+            <!-- THANH BÊN (SIDEBAR) -->
+            <div class="info-panel">
+                <div class="sidebar-content">
+                    <!-- PHẦN TẢI LÊN -->
+                    <div class="upload-section">
+                        <h3>📁 Data Input</h3>
+                        <div class="upload-item">
+                            <input type="file" id="jsonFile" accept=".json" class="file-input">
+                            <p>Use mouse wheel to zoom, drag to pan.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- PHẦN ĐIỀU KHIỂN -->
+                    <div class="controls-section">
+                        <h3>⚙️ Controls</h3>
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="showBorders">Show Borders:</label>
+                                <input type="checkbox" id="showBorders" checked>
+                            </div>
+                            <div class="control-group">
+                                <label for="pipeFilter">Highlight Pipe:</label>
+                                <select id="pipeFilter"><option value="all">All Pipes</option></select>
+                            </div>
+                            <div class="control-group">
+                                <label for="shapeFilter">Shape Filter:</label>
+                                <select id="shapeFilter"><option value="all">All Shapes</option></select>
+                            </div>
+                             <div class="zoom-controls">
+                                <button class="zoom-btn" onclick="app.zoomIn()">Zoom In (+)</button>
+                                <button class="zoom-btn" onclick="app.zoomOut()">Zoom Out (-)</button>
+                                <button class="zoom-btn" onclick="app.resetView()">Reset View</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PHẦN CHÚ THÍCH -->
+                    <div class="legend-section">
+                        <h3>🎨 Shape Legend</h3>
+                        <div id="legendContainer" class="legend-items"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="loading" id="loading"></div>
+
+    <script>
+        class PipeVisualization {
+            constructor() {
+                // State
+                this.data = null;
+                this.bounds = null;
+                this.shapeColors = {};
+                this.currentZoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.isDragging = false;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+
+                // DOM Elements
+                this.canvasContainer = null;
+                this.imageContainer = document.getElementById('imageContainer');
+                
+                // Configuration Constants
+                this.ZOOM_FACTOR = 1.2;
+                this.MAX_ZOOM = 20;
+                this.MIN_ZOOM = 1;
+                this.HIGHLIGHT_OPACITY = 1;
+                this.NORMAL_OPACITY = 0.2;
+                this.HIGHLIGHT_STROKE_WIDTH = 0.5;
+                this.NORMAL_STROKE_WIDTH = 0.2;
+
+                this.initializeEventListeners();
+                this.generateColors();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('jsonFile').addEventListener('change', (e) => this.handleJsonUpload(e));
+                ['showBorders', 'pipeFilter', 'shapeFilter'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', () => this.updateVisualization());
+                });
+                
+                this.imageContainer.addEventListener('wheel', e => this.handleMouseWheel(e));
+                this.imageContainer.addEventListener('mousedown', e => this.handleMouseDown(e));
+                this.imageContainer.addEventListener('mousemove', e => this.handleMouseMove(e));
+                this.imageContainer.addEventListener('mouseup', e => this.handleMouseUp(e));
+                this.imageContainer.addEventListener('mouseleave', e => this.handleMouseUp(e));
+            }
+
+            // --- Event Handlers ---
+            handleMouseWheel(e) {
+                if (!this.canvasContainer) return;
+                e.preventDefault();
+                const zoomMultiplier = e.deltaY > 0 ? 1 / this.ZOOM_FACTOR : this.ZOOM_FACTOR;
+                this._zoomAtPoint(zoomMultiplier, e.clientX, e.clientY);
+            }
+
+            handleMouseDown(e) {
+                if (!this.canvasContainer) return;
+                this.isDragging = true;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                this.imageContainer.classList.add('dragging');
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging) return;
+                this.panX += e.clientX - this.lastMouseX;
+                this.panY += e.clientY - this.lastMouseY;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                this._updateCanvasTransform();
+            }
+
+            handleMouseUp() {
+                this.isDragging = false;
+                this.imageContainer.classList.remove('dragging');
+            }
+
+            // --- Core Logic ---
+            async handleJsonUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this._showLoading(true);
+                try {
+                    const text = await file.text();
+                    this.data = JSON.parse(text);
+                    this.bounds = this._calculateBounds(this.data);
+                    this._updateFilters();
+                    this.resetView();
+                } catch (error) {
+                    alert('Error reading JSON file: ' + error.message);
+                } finally {
+                    this._showLoading(false);
+                }
+            }
+
+            getFilteredData() {
+                if (!this.data) return [];
+                const shapeFilter = document.getElementById('shapeFilter').value;
+                return this.data.filter(obj => shapeFilter === 'all' || obj.shape_name === shapeFilter);
+            }
+
+            // --- Visualization & Rendering ---
+            updateVisualization() {
+                const canvas = document.getElementById('imageCanvas');
+                if (!this.data || !this.bounds) {
+                    canvas.innerHTML = `<div class="no-data"><span>📤</span>Please upload a JSON data file to start</div>`;
+                    return;
+                }
+
+                const container = this.imageContainer;
+                const containerRect = container.getBoundingClientRect();
+                const containerW = containerRect.width;
+                const containerH = containerRect.height;
+
+                const dataW = this.bounds.width;
+                const dataH = this.bounds.height;
+                const dataAspect = dataW / dataH;
+                const containerAspect = containerW / containerH;
+
+                let fitW, fitH;
+                const padding = 40;
+                if (containerAspect > dataAspect) {
+                    fitH = containerH - padding;
+                    fitW = fitH * dataAspect;
+                } else {
+                    fitW = containerW - padding;
+                    fitH = fitW / dataAspect;
+                }
+
+                canvas.innerHTML = `<div class="canvas-container" style="width: ${fitW}px; height: ${fitH}px;"></div>`;
+                this.canvasContainer = canvas.querySelector('.canvas-container');
+
+                const svg = this._createSvgElement('svg', {
+                    width: '100%',
+                    height: '100%',
+                    viewBox: `${this.bounds.minX} ${this.bounds.minY} ${this.bounds.width} ${this.bounds.height}`
+                });
+
+                this._renderObjects(svg, this.getFilteredData());
+                this.canvasContainer.appendChild(svg);
+
+                this._updateCanvasTransform();
+                this._updateLegend();
+                this._updateInfoPanel();
+            }
+
+            _renderObjects(svg, filteredData) {
+                const pipeFilter = document.getElementById('pipeFilter').value;
+                const showBorders = document.getElementById('showBorders').checked;
+                
+                filteredData.forEach((obj) => {
+                    // THAY ĐỔI: Chỉnh sửa logic highlight để xử lý mảng pipe_id
+                    let isMatch = false;
+                    if (pipeFilter !== 'all') {
+                        const currentPipeId = obj.pipe_id;
+                        if (Array.isArray(currentPipeId)) {
+                            // Nếu pipe_id của đối tượng là mảng, kiểm tra xem filter có nằm trong mảng không
+                            isMatch = currentPipeId.includes(Number(pipeFilter));
+                        } else {
+                            // So sánh như cũ nếu pipe_id là một số
+                            isMatch = String(currentPipeId) === String(pipeFilter);
+                        }
+                    }
+                    const shouldHighlight = (pipeFilter === 'all' || isMatch);
+                    // Kết thúc thay đổi
+
+                    const points = obj.vertices.map(p => p.join(',')).join(' ');
+                    const color = this._getColorForShape(obj.shape_name);
+                    const opacity = shouldHighlight ? this.HIGHLIGHT_OPACITY : this.NORMAL_OPACITY;
+
+                    const polyFill = this._createSvgElement('polygon', {
+                        points: points, fill: color, opacity: opacity,
+                        class: 'color-overlay' + (shouldHighlight ? ' highlighted' : '')
+                    });
+                    polyFill.addEventListener('click', () => this.selectObject(obj));
+                    svg.appendChild(polyFill);
+
+                    if (showBorders) {
+                        const polyBorder = this._createSvgElement('polygon', {
+                            points: points, fill: 'none', stroke: this._darkenColor(color),
+                            'stroke-width': shouldHighlight ? this.HIGHLIGHT_STROKE_WIDTH : this.NORMAL_STROKE_WIDTH,
+                             opacity: opacity, class: 'bbox' + (shouldHighlight ? ' highlighted' : '')
+                        });
+                        svg.appendChild(polyBorder);
+                    }
+                });
+            }
+
+            selectObject(obj) {
+                if (!obj || obj.pipe_id === null || obj.pipe_id === undefined) return;
+                
+                const pipeFilter = document.getElementById('pipeFilter');
+                
+                // THAY ĐỔI: Nếu pipe_id là mảng, chọn phần tử đầu tiên để hiển thị trên filter
+                const targetPipeId = Array.isArray(obj.pipe_id) ? obj.pipe_id[0] : obj.pipe_id;
+
+                if (String(pipeFilter.value) !== String(targetPipeId)) {
+                    pipeFilter.value = targetPipeId;
+                    this.updateVisualization();
+                }
+            }
+            
+            // --- Zoom & Pan ---
+            zoomIn() { this._zoomAtPoint(this.ZOOM_FACTOR); }
+            zoomOut() { this._zoomAtPoint(1 / this.ZOOM_FACTOR); }
+            
+            resetView() {
+                this.currentZoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                document.getElementById('pipeFilter').value = 'all';
+                document.getElementById('shapeFilter').value = 'all';
+                this.updateVisualization();
+            }
+
+            // --- Private Helper Functions ---
+            _zoomAtPoint(zoomMultiplier, mouseX = null, mouseY = null) {
+                if (!this.canvasContainer) return;
+                const containerRect = this.imageContainer.getBoundingClientRect();
+                if (mouseX === null) mouseX = containerRect.left + containerRect.width / 2;
+                if (mouseY === null) mouseY = containerRect.top + containerRect.height / 2;
+
+                const oldZoom = this.currentZoom;
+                const newZoom = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, oldZoom * zoomMultiplier));
+                
+                if (newZoom === oldZoom) return;
+
+                if (newZoom === this.MIN_ZOOM) {
+                    this.panX = 0;
+                    this.panY = 0;
+                } else {
+                    const mousePointX = mouseX - containerRect.left;
+                    const mousePointY = mouseY - containerRect.top;
+                    const zoomRatio = newZoom / oldZoom;
+                    this.panX = mousePointX - (mousePointX - this.panX) * zoomRatio;
+                    this.panY = mousePointY - (mousePointY - this.panY) * zoomRatio;
+                }
+                this.currentZoom = newZoom;
+                
+                this._updateCanvasTransform();
+                this._updateInfoPanel();
+            }
+
+            _updateCanvasTransform() {
+                if (this.canvasContainer) {
+                    this.canvasContainer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.currentZoom})`;
+                }
+            }
+
+            _updateFilters() {
+                // THAY ĐỔI: Dùng flatMap để lấy tất cả các pipe_id từ mảng và số đơn
+                const pipes = [...new Set(this.data.flatMap(o => o.pipe_id).filter(id => id !== null && id !== undefined))].sort((a, b) => a - b);
+                const shapes = [...new Set(this.data.map(o => o.shape_name))].sort();
+
+                this._populateSelect('pipeFilter', pipes, 'Pipe');
+                this._populateSelect('shapeFilter', shapes);
+            }
+
+            _populateSelect(id, items, prefix = '') {
+                const select = document.getElementById(id);
+                select.innerHTML = `<option value="all">All ${prefix || id.replace('Filter', '')}s</option>`;
+                items.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.textContent = `${prefix} ${item}`.trim();
+                    select.appendChild(option);
+                });
+            }
+            
+            _updateLegend() {
+                const filteredData = this.getFilteredData();
+                const shapes = [...new Set(filteredData.map(obj => obj.shape_name))].sort();
+                const container = document.getElementById('legendContainer');
+                
+                container.innerHTML = shapes.map(shape => {
+                    const color = this._getColorForShape(shape);
+                    const count = filteredData.filter(obj => obj.shape_name === shape).length;
+                    return `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: ${color}"></div>
+                            <span>${shape} (${count})</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            _updateInfoPanel() {
+                if (!this.data) return;
+                document.getElementById('viewportInfo').textContent = `Objects: ${this.getFilteredData().length}/${this.data.length}`;
+                document.getElementById('zoomInfo').textContent = `Zoom: ${Math.round(this.currentZoom * 100)}%`;
+            }
+
+            _calculateBounds(data) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                data.forEach(obj => obj.vertices.forEach(([x, y]) => {
+                    minX = Math.min(minX, x); minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+                }));
+                const paddingX = (maxX - minX) * 0.05;
+                const paddingY = (maxY - minY) * 0.05;
+                return {
+                    minX: minX - paddingX, minY: minY - paddingY,
+                    width: (maxX - minX) + 2 * paddingX, height: (maxY - minY) + 2 * paddingY
+                };
+            }
+
+            _createSvgElement(type, attributes) {
+                const el = document.createElementNS('http://www.w3.org/2000/svg', type);
+                for (const key in attributes) {
+                    el.setAttribute(key, attributes[key]);
+                }
+                return el;
+            }
+
+            generateColors() {
+                this.colorPalette = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471', '#82E0AA', '#F1948A', '#A29BFE', '#74B9FF', '#00B894'];
+            }
+            _getColorForShape(shapeName) {
+                if (!this.shapeColors[shapeName]) {
+                    this.shapeColors[shapeName] = this.colorPalette[Object.keys(this.shapeColors).length % this.colorPalette.length];
+                }
+                return this.shapeColors[shapeName];
+            }
+            _darkenColor(hex) {
+                let [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+                const factor = 0.7;
+                r = Math.floor(r * factor); g = Math.floor(g * factor); b = Math.floor(b * factor);
+                return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            }
+            _showLoading(show) { document.getElementById('loading').style.display = show ? 'block' : 'none'; }
+        }
+
+        const app = new PipeVisualization();
+    </script>
+</body>
+</html>

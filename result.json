@@ -1,0 +1,30 @@
+[
+  {
+    "pattern_id": "inner_region_001.png",
+    "ai_description": "Image 1: The geometric features consist of two straight lines intersecting diagonally at the center of a square frame, forming an \"X\" shape with perfect symmetry and equal spacing from the corners, with both lines of equal length and scale relative to the frame. The line type and style are continuous solid lines of medium thickness, with clear, unbroken, and bold appearance, and no segmentation or variation in line weight. In the context of architectural or engineering drawings, these elements typically represent a generic placeholder or a symbol for a drawing not available, or sometimes a reference marker for a detail or section cut. The functional role of these elements is to serve as a visual indicator or annotation, marking a location for further information or denoting an area where content is intentionally omitted or referenced elsewhere in the drawing."
+  },
+  {
+    "pattern_id": "inner_region_002.png",
+    "ai_description": "Image 2: The geometric features are a regular grid of identical squares, arranged in horizontal and vertical rows with uniform spacing and perfect alignment, exhibiting both repetition and symmetry, with each square of equal size and scale. The line type and style are continuous solid lines of thin thickness, with each square outlined by faint, unbroken lines, and the grid pattern is clear and evenly distributed without any segmentation or boldness. In architectural or engineering drawing context, these elements typically represent a hatch or fill pattern, often used to indicate a specific material, surface treatment, or modular layout such as tiles or paving. The functional role of these elements is to provide a visual cue for material specification, surface finish, or modular arrangement within a designated area of the drawing."
+  },
+  {
+    "pattern_id": "inner_region_003.png",
+    "ai_description": "Image 3: The geometric features are a series of parallel straight lines, all oriented at the same diagonal angle, evenly spaced, and extending across the entire frame, with no intersection or variation in length, creating a repetitive and aligned pattern. The line type and style are continuous solid lines of thin thickness, with each line appearing faint, unbroken, and consistent in weight, and the spacing between lines is uniform and regular. In architectural or engineering drawing context, these elements represent a hatch pattern, commonly used to denote a specific material or section cut, such as concrete, insulation, or fill. The functional role of these elements is to visually differentiate areas by material or construction type, providing clear annotation for material specification or section identification within the drawing."
+  },
+  {
+    "pattern_id": "inner_region_004.png",
+    "ai_description": "Image 4: The geometric features are a series of parallel diagonal lines, all oriented at the same angle, but each line is segmented into short dashes with regular intervals, and the lines are evenly spaced and aligned, creating a repetitive dashed pattern. The line type and style are dashed lines with defined segment length, each dash being of equal length and separated by consistent gaps, with the lines of thin thickness and appearing faint and clearly segmented, with no boldness or variation in weight. In architectural or engineering drawing context, these elements represent a dashed hatch pattern, often used to indicate a different material, hidden elements, or a specific type of fill or insulation in section views. The functional role of these elements is to provide a distinct visual annotation for material differentiation, hidden construction, or non-visible elements within the drawing, ensuring clear communication of construction intent."
+  },
+  {
+    "pattern_id": "inner_region_005.png",
+    "ai_description": "Image 5: The geometric features are a grid of intersecting diagonal lines forming a diamond or rhombus pattern, with each intersection point evenly spaced and the pattern exhibiting both repetition and symmetry, with all lines of equal length and scale relative to the grid. The line type and style are continuous solid lines of thin thickness, with each line appearing faint, unbroken, and consistent in weight, and the intersections are clear and regularly distributed without any segmentation or boldness. In architectural or engineering drawing context, these elements represent a cross-hatch pattern, typically used to indicate reinforced areas, mesh, or a specific material such as steel reinforcement or wire mesh in section or plan views. The functional role of these elements is to visually communicate the presence of reinforcement, mesh, or a specific material arrangement, serving as a material annotation or construction detail within the drawing."
+  },
+  {
+    "pattern_id": "inner_region_006.png",
+    "ai_description": "Image 6: The geometric features are a regular grid of plus signs (\"+\"), each composed of two intersecting short lines at right angles, with each symbol evenly spaced and aligned in both horizontal and vertical directions, exhibiting repetition and symmetry, and each plus sign of equal size and scale. The line type and style are continuous solid lines of thin thickness, with each segment of the plus sign appearing faint, unbroken, and consistent in weight, and the spacing between symbols is uniform and regular. In architectural or engineering drawing context, these elements typically represent grid intersection markers, survey points, or reference points for layout and alignment. The functional role of these elements is to provide precise reference locations for measurement, alignment, or construction layout, serving as annotation or control points within the drawing."
+  },
+  {
+    "pattern_id": "inner_region_007.png",
+    "ai_description": "Empty white region, blank background with no lines or patterns."
+  }
+]
