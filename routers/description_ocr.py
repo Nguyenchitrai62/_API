@@ -17,6 +17,23 @@ from modules.onnx_det import _resize_normalize, _get_contours
 
 router = APIRouter()
 
+def convert_numpy_types(obj):
+    """Convert numpy data types to native Python types recursively"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
 # === CONFIGURATION ===
 DEFAULT_CONFIG = {
     'resize_long': 960, 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
@@ -25,7 +42,7 @@ DEFAULT_CONFIG = {
 }
 MARGIN_THRESHOLD = 0
 # LƯU Ý: Thay thế bằng khóa API của bạn hoặc sử dụng biến môi trường
-client = OpenAI(api_key="")
+client = OpenAI(api_key="sk-")
 INFERENCE_CHARACTER_DICT = [
     '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '}', '~', '°', '±', '²', '³', 'À', 'Á', 'Â', 'Ã', 'È', 'É', 'Ê', 'Ì', 'Í', 'Ò', 'Ó', 'Ô', 'Õ', 'Ö', '×', 'Ø', 'Ù', 'Ú', 'Ü', 'Ý', 'à', 'á', 'â', 'ã', 'è', 'é', 'ê', 'ì', 'í', 'ò', 'ó', 'ô', 'õ', 'ö', '÷', 'ù', 'ú', 'ü', 'ý', 'Ă', 'ă', 'Đ', 'đ', 'Ĩ', 'ĩ', 'Ũ', 'ũ', 'Ơ', 'ơ', 'Ư', 'ư', 'Ω', 'λ', 'μ', 'ρ', 'σ', 'τ', 'φ', 'ψ', 'ω', 'Ạ', 'ạ', 'Ả', 'ả', 'Ấ', 'ấ', 'Ầ', 'ầ', 'Ẩ', 'ẩ', 'Ẫ', 'ẫ', 'Ậ', 'ậ', 'Ắ', 'ắ', 'Ằ', 'ằ', 'Ẳ', 'ẳ', 'Ẵ', 'ẵ', 'Ặ', 'ặ', 'Ẹ', 'ẹ', 'Ẻ', 'ẻ', 'Ẽ', 'ẽ', 'Ế', 'ế', 'Ề', 'ề', 'Ể', 'ể', 'Ễ', 'ễ', 'Ệ', 'ệ', 'Ỉ', 'ỉ', 'Ị', 'ị', 'Ọ', 'ọ', 'Ỏ', 'ỏ', 'Ố', 'ố', 'Ồ', 'ồ', 'Ổ', 'ổ', 'Ỗ', 'ỗ', 'Ộ', 'ộ', 'Ớ', 'ớ', 'Ờ', 'ờ', 'Ở', 'ở', 'Ỡ', 'ỡ', 'Ợ', 'ợ', 'Ụ', 'ụ', 'Ủ', 'ủ', 'Ứ', 'ứ', 'Ừ', 'ừ', 'Ử', 'ử', 'Ữ', 'ữ', 'Ự', 'ự', 'Ỳ', 'ỳ', 'Ỵ', 'ỵ', 'Ỷ', 'ỷ', 'Ỹ', 'ỹ', '–', '…', '‰', '∆', '∞', '≈', '≠', '≤', '≥',' '
 ]
@@ -209,7 +226,12 @@ async def generate_description(request: ImageRequest):
             x_min, y_min = int(np.min(box[:,0])), int(np.min(box[:,1]))
             x_max, y_max = int(np.max(box[:,0])), int(np.max(box[:,1]))
             text = recognize_text_triton(img[y_min:y_max, x_min:x_max], rec_model, triton_url)
-            ocr_results.append({'id':f'text_{i+1}', 'bbox':[x_min,y_min,x_max-x_min,y_max-y_min], 'text':text, 'confidence':float(scores[i]) if i<len(scores) else 0.0})
+            ocr_results.append({
+                'id': f'text_{i+1}', 
+                'bbox': [x_min, y_min, x_max-x_min, y_max-y_min], 
+                'text': text, 
+                'confidence': float(scores[i]) if i<len(scores) else 0.0
+            })
         
         shape_crops = extract_enclosed_shapes(img, boxes)
         shape_descriptions = analyze_shapes_with_ai(shape_crops)
@@ -217,11 +239,14 @@ async def generate_description(request: ImageRequest):
         shape_results = []
         for i, (shape_info, ai_desc) in enumerate(zip(shape_crops, shape_descriptions)):
             shape_results.append({
-                'id': f'shape_{i+1}', 'bbox': shape_info['bbox'], 'center': shape_info['center'],
-                'area': shape_info['area'], 'ai_description': ai_desc,
+                'id': f'shape_{i+1}', 
+                'bbox': convert_numpy_types(shape_info['bbox']), 
+                'center': convert_numpy_types(shape_info['center']),
+                'area': convert_numpy_types(shape_info['area']), 
+                'ai_description': ai_desc,
                 'origin_description': find_corresponding_text(shape_info['bbox'], ocr_results)
             })
-        return shape_results
+        return convert_numpy_types(shape_results)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
@@ -243,7 +268,7 @@ async def perform_ocr(request: ImageRequest):
             rec_boxes.append([x_min, y_min, x_max, y_max])
             rec_scores.append(float(scores[i]) if i < len(scores) else 0.0)
             
-        return {"rec_texts": rec_texts, "rec_boxes": rec_boxes, "rec_scores": rec_scores}
+        return convert_numpy_types({"rec_texts": rec_texts, "rec_boxes": rec_boxes, "rec_scores": rec_scores})
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
